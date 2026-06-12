@@ -9,7 +9,7 @@ The `sketch/hebclk.ino` sketch runs on a **Seeed XIAO ESP32C3** connected to a *
 | Part | Details |
 |------|---------|
 | MCU | Seeed XIAO ESP32C3 |
-| Display | Waveshare 7.5" V2 e-paper (800×480, B/W) |
+| Display | [Waveshare 7.5" V2 e-paper (800×480, B/W)](https://s.click.aliexpress.com/e/_c4dODAMv) |
 
 ### Wiring
 
@@ -88,6 +88,7 @@ After connecting, the device runs a small web server on port 80. Open `http://<d
 | **Image URL** | Base URL of the hebclk server. Font, location, and sleep-time are appended automatically. |
 | **Font** | One of the five Hebrew fonts available on the server. |
 | **Location** | City name passed to the weather service (e.g. `Tel Aviv`, `Raanana`, `Jerusalem`). |
+| **Calendar type** | `Gregorian` — shows day + Gregorian month. `Jewish (Hebrew)` — shows Hebrew day, month, and year (e.g. כ״ז בְּסִיוָן תשפ״ו), fetched from hebcal.com. |
 | **Enable sleep schedule** | When checked, reveals start/end times. During this window the refresh rate switches to 5 min and the server shows the night image. |
 | **Sleep start / Sleep end** | 24-hour HH:MM times defining the sleep window (overnight ranges supported, e.g. 22:00 – 06:00). |
 | **Refresh interval** | How often (seconds) to fetch a new image outside the sleep window. |
@@ -103,7 +104,7 @@ Click **Save & restart** — the device saves settings to flash and reboots.
 The sketch appends query parameters to the configured base URL before each fetch:
 
 ```
-<Image URL>?font=<selectedFont>&sleeptime=<0|1>&location=<location>
+<Image URL>?font=<selectedFont>&sleeptime=<0|1>&location=<location>&calendar=<gregorian|jewish>
 ```
 
 - `sleeptime=1` is sent only when the device's local time falls within the configured sleep window.

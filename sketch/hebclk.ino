@@ -40,6 +40,9 @@ bool     sleepEnabled = false;
 String   sleepStart   = "22:00";  // HH:MM 24h
 String   sleepEnd     = "06:00";
 
+// Calendar
+String calendarType = "gregorian";  // "gregorian" | "jewish"
+
 // RTC
 bool       rtcEnabled = false;
 RTC_DS3231 rtc;
@@ -97,6 +100,7 @@ String buildFetchUrl() {
     url += "font="       + urlEncode(selectedFont);
     url += "&sleeptime=" + String(isInSleepWindow() ? "1" : "0");
     url += "&location="  + urlEncode(location.length() > 0 ? location : "Tel Aviv");
+    url += "&calendar="  + calendarType;
     return url;
 }
 
@@ -142,6 +146,12 @@ static const char CONFIG_HTML[] PROGMEM = R"(<!DOCTYPE html>
 
     <label>Location</label>
     <input type="text" name="location" value="{{LOCATION}}" placeholder="Tel Aviv">
+
+    <label>Calendar type</label>
+    <select name="calendar">
+      <option value="gregorian" {{CALENDAR_GREGORIAN}}>Gregorian</option>
+      <option value="jewish"    {{CALENDAR_JEWISH}}>Jewish (Hebrew)</option>
+    </select>
 
     <hr>
 
@@ -211,8 +221,10 @@ void handleRoot() {
     String html = FPSTR(CONFIG_HTML);
     html.replace("{{URL}}",              imageUrl);
     html.replace("{{FONT_OPTIONS}}",     fontOptions);
-    html.replace("{{LOCATION}}",         location);
-    html.replace("{{SLEEP_EN_CHECKED}}", sleepEnabled ? "checked" : "");
+    html.replace("{{LOCATION}}",           location);
+    html.replace("{{CALENDAR_GREGORIAN}}", calendarType == "gregorian" ? "selected" : "");
+    html.replace("{{CALENDAR_JEWISH}}",    calendarType == "jewish"    ? "selected" : "");
+    html.replace("{{SLEEP_EN_CHECKED}}",   sleepEnabled ? "checked" : "");
     html.replace("{{SLEEP_START}}",      sleepStart);
     html.replace("{{SLEEP_END}}",        sleepEnd);
     html.replace("{{INTERVAL}}",         String(refreshInterval));
@@ -228,6 +240,9 @@ void handleConfig() {
         selectedFont = server.arg("font");
     if (server.hasArg("location"))
         location = server.arg("location");
+    if (server.hasArg("calendar") &&
+        (server.arg("calendar") == "gregorian" || server.arg("calendar") == "jewish"))
+        calendarType = server.arg("calendar");
     sleepEnabled = server.hasArg("sleep_en");
     rtcEnabled   = server.hasArg("rtc_en");
     if (server.hasArg("sleep_start") && server.arg("sleep_start").length() == 5)
@@ -243,6 +258,7 @@ void handleConfig() {
     prefs.putString("url",         imageUrl);
     prefs.putString("font",        selectedFont);
     prefs.putString("location",    location);
+    prefs.putString("calendar",    calendarType);
     prefs.putBool("sleep_en",      sleepEnabled);
     prefs.putString("sleep_start", sleepStart);
     prefs.putString("sleep_end",   sleepEnd);
@@ -422,6 +438,7 @@ void setup() {
     fullRefreshEvery = prefs.getUChar("full_every",   10);
     selectedFont     = prefs.getString("font",        "NotoSansHebrew-Bold");
     location         = prefs.getString("location",    "Tel Aviv");
+    calendarType     = prefs.getString("calendar",    "gregorian");
     sleepEnabled     = prefs.getBool("sleep_en",      false);
     sleepStart       = prefs.getString("sleep_start", "22:00");
     sleepEnd         = prefs.getString("sleep_end",   "06:00");

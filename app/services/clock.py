@@ -259,9 +259,10 @@ def _generate_quiet_image(font_name: str) -> bytes:
 
 
 def generate_clock_image(
-    font_name:  str        = DEFAULT_FONT,
-    sleep_time: bool       = False,
-    weather:    dict | None = None,
+    font_name:   str        = DEFAULT_FONT,
+    sleep_time:  bool       = False,
+    weather:     dict | None = None,
+    jewish_date: str | None  = None,
 ) -> bytes:
     fn = font_name if font_name in VALID_FONTS else DEFAULT_FONT
 
@@ -324,11 +325,37 @@ def generate_clock_image(
     draw.line([(div_x,  H - 92), (div_x,  H - 15)], fill=0, width=1)
     draw.line([(div_x2, H - 92), (div_x2, H - 15)], fill=0, width=1)
 
-    day_name = DAYS_HE[now.weekday()]
-    date_str = f"{now.day} {MONTHS_HE[now.month - 1]}"
-    left_cx  = (bar_left + div_x) // 2
-    draw.text((left_cx, bar_cy - 14), day_name, font=font_small, fill=0, anchor="mm")
-    draw.text((left_cx, bar_cy + 14), date_str, font=font_small, fill=0, anchor="mm")
+    day_name  = DAYS_HE[now.weekday()]
+    if jewish_date and "\n" in jewish_date:
+        date_str, year_str = jewish_date.split("\n", 1)
+    else:
+        date_str = jewish_date if jewish_date else f"{now.day} {MONTHS_HE[now.month - 1]}"
+        year_str = None
+    left_cx   = (bar_left + div_x) // 2
+    cell_w    = div_x - bar_left - 10
+
+    def _fit_font(text: str, start: int, minimum: int = 18) -> ImageFont.FreeTypeFont:
+        f = get_font(start, fn)
+        while True:
+            bbox = draw.textbbox((0, 0), text, font=f)
+            if (bbox[2] - bbox[0]) <= cell_w:
+                return f
+            cur = getattr(f, "size", start)
+            if cur <= minimum:
+                return f
+            f = get_font(cur - 2, fn)
+
+    if year_str:
+        day_font  = _fit_font(day_name, 28)
+        date_font = _fit_font(date_str, 26)
+        year_font = _fit_font(year_str, 22)
+        draw.text((left_cx, bar_cy - 26), day_name, font=day_font,  fill=0, anchor="mm")
+        draw.text((left_cx, bar_cy),      date_str, font=date_font, fill=0, anchor="mm")
+        draw.text((left_cx, bar_cy + 24), year_str, font=year_font, fill=0, anchor="mm")
+    else:
+        date_font = _fit_font(date_str, 34)
+        draw.text((left_cx, bar_cy - 14), day_name, font=font_small, fill=0, anchor="mm")
+        draw.text((left_cx, bar_cy + 14), date_str, font=date_font,  fill=0, anchor="mm")
 
     mid_x = (div_x + div_x2) // 2
     if period_line:

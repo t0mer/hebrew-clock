@@ -2,7 +2,7 @@
 
 ![hebrew-clock on a Waveshare 7.5" e-paper display](assets/screenshots/heb-clock.jpeg)
 
-A Hebrew word-clock server that generates 800×480 black-and-white PNG images for e-paper displays. The server expresses the current Israel time in natural written Hebrew, together with an analog clock face, the day/date, and a live weather icon. A companion Arduino sketch drives the image onto a Waveshare 7.5" V2 e-paper panel via a Seeed XIAO ESP32C3.
+A Hebrew word-clock server that generates 800×480 black-and-white PNG images for e-paper displays. The server expresses the current Israel time in natural written Hebrew, together with an analog clock face, the day/date, and a live weather icon. A companion Arduino sketch drives the image onto a [Waveshare 7.5" V2 e-paper panel](https://s.click.aliexpress.com/e/_c4dODAMv) via a Seeed XIAO ESP32C3.
 
 ---
 
@@ -47,6 +47,13 @@ Between 06:00 and 07:30 Israel time the display switches to a minimal "do not di
 ![Morning quiet — FrankRuhlLibre-Bold, Jerusalem](assets/screenshots/clock-frankruh-jerusalem.png)
 *FrankRuhlLibre-Bold font*
 
+### Jewish (Hebrew) calendar mode
+
+When `calendar=jewish` is passed, the bottom-left cell shows the full Hebrew date — day numeral, month name, and Hebrew year — fetched from the [hebcal.com](https://www.hebcal.com) converter API and cached for 24 hours.
+
+![Jewish calendar — Heebo-Bold, Raanana](assets/screenshots/clock-jewish.png)
+*Hebrew date: כ״ז בְּסִיוָן תשפ״ו*
+
 ### Night / sleep mode
 
 When `sleeptime=1` is sent by the ESP (during the configured sleep window), the server returns a dark star-field image with a Hebrew "time to sleep" message.
@@ -60,7 +67,7 @@ When `sleeptime=1` is sent by the ESP (during the configured sleep window), the 
 The server exposes a single image endpoint at the root path (also reachable as `/clock` or `/clock.png`).
 
 ```
-GET /?font=<name>&sleeptime=<0|1>&location=<city>
+GET /?font=<name>&sleeptime=<0|1>&location=<city>&calendar=<gregorian|jewish>
 ```
 
 | Parameter | Default | Description |
@@ -68,6 +75,7 @@ GET /?font=<name>&sleeptime=<0|1>&location=<city>
 | `font` | `NotoSansHebrew-Bold` | Hebrew font. See [Available Fonts](#available-fonts). |
 | `sleeptime` | `0` | Set to `1` to render the night image. |
 | `location` | `Tel Aviv` | City passed to the weather API. |
+| `calendar` | `gregorian` | `gregorian` for day + Gregorian month; `jewish` for Hebrew date + year (fetched from hebcal.com). |
 
 Response: `image/png`, 800×480, 1-bit, `Cache-Control: no-cache`.
 
@@ -78,6 +86,9 @@ Interactive API docs: `http://<host>:8765/api/docs`
 ```
 # Heebo-Bold, Raanana, normal mode
 https://clk.cloudguard.co.il/?font=Heebo-Bold&sleeptime=0&location=Raanana
+
+# Jewish calendar
+https://clk.cloudguard.co.il/?font=Heebo-Bold&sleeptime=0&location=Raanana&calendar=jewish
 
 # Night/sleep image
 https://clk.cloudguard.co.il/?font=Heebo-Bold&sleeptime=1
@@ -206,6 +217,7 @@ See **[epaper.md](epaper.md)** for full instructions on:
 - Optional DS3231 RTC module (keeps the sleep schedule alive without NTP)
 
 ![ePaper Configuration UI](assets/screenshots/esp-config-ui.png)
+*Configuration UI — showing Calendar type dropdown (Gregorian / Jewish) and DS3231 RTC option*
 
 ---
 
@@ -219,6 +231,7 @@ app/
   services/
     clock.py           # Image generation (PIL, Hebrew word-clock logic)
     weather.py         # wttr.in weather cache
+    jewish_cal.py      # hebcal.com Hebrew date fetch + cache
 sketch/
   hebclk.ino           # ESP32 Arduino sketch
 assets/screenshots/    # README images
