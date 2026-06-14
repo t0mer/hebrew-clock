@@ -12,6 +12,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
+RUN pip install --no-cache-dir --only-binary=:all: \
+        --index-url https://pypi.org/simple \
+        -r requirements.txt \
+ && python -c "from PIL import features; assert features.check('raqm'), 'raqm missing!'"
 # build libs only needed to compile Pillow with raqm on armv7
 RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential libraqm-dev libfreetype6-dev libjpeg-dev zlib1g-dev \
