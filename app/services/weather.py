@@ -1,4 +1,5 @@
 import datetime
+import os
 import urllib.parse
 from loguru import logger
 import httpx
@@ -7,7 +8,8 @@ import httpx
 CACHE_TTL_SECONDS = 1800
 FAIL_BACKOFF_SECONDS = 600
 
-_WTTR_URL = "https://wttr.in/{loc}?format=j1"
+_WTTR_BASE = os.environ.get("WTTR_URL", "https://wttr.in")
+_WTTR_URL = _WTTR_BASE.rstrip("/") + "/{loc}?format=j1"
 
 _CODE_TO_ICON: dict[int, str] = {
     113: "sun", 116: "sun_cloud", 119: "cloud", 122: "cloud",
