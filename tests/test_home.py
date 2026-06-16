@@ -51,3 +51,9 @@ def test_clock_path_still_works(client):
     resp = client.get("/clock")
     assert resp.status_code == 200
     assert resp.headers["content-type"] == "image/png"
+
+
+def test_tailwind_css_served(client):
+    resp = client.get("/static/tailwind.min.css")
+    assert resp.status_code == 200
+    assert "text/css" in resp.headers.get("content-type", "")
