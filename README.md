@@ -1,6 +1,6 @@
 # hebrew-clock
 
-![hebrew-clock on a Waveshare 7.5" e-paper display](assets/screenshots/heb-clock.jpeg)
+![hebrew-clock on a Waveshare 7.5" e-paper display](https://raw.githubusercontent.com/t0mer/hebrew-clock/main/assets/screenshots/heb-clock.jpeg)
 
 A Hebrew word-clock server that generates 800×480 black-and-white PNG images for e-paper displays. The server expresses the current Israel time in natural written Hebrew, together with an analog clock face, the day/date, and a live weather icon. A companion Arduino sketch drives the image onto a [Waveshare 7.5" V2 e-paper panel](https://s.click.aliexpress.com/e/_c3SXnojT) via a Seeed XIAO ESP32C3.
 
@@ -25,40 +25,40 @@ The main view shows:
 - **Time-of-day period** (*בַּבֹּקֶר*, *בָּעֶרֶב*, …) in the centre cell
 - **Weather** (icon + temperature + condition) in the bottom-right cell
 
-![Normal clock — Heebo-Bold, Raanana](assets/screenshots/clock-main-heebo-raanana.png)
+![Normal clock — Heebo-Bold, Raanana](https://raw.githubusercontent.com/t0mer/hebrew-clock/main/assets/screenshots/clock-main-heebo-raanana.png)
 *Heebo-Bold font — Raanana, 22°C partly cloudy*
 
-![Normal clock — NotoSansHebrew-Bold, Tel Aviv](assets/screenshots/clock-main-noto-telaviv.png)
+![Normal clock — NotoSansHebrew-Bold, Tel Aviv](https://raw.githubusercontent.com/t0mer/hebrew-clock/main/assets/screenshots/clock-main-noto-telaviv.png)
 *NotoSansHebrew-Bold font — Tel Aviv*
 
-![Normal clock — FrankRuhlLibre-Bold, Jerusalem](assets/screenshots/clock-main-frankruh-jerusalem.png)
+![Normal clock — FrankRuhlLibre-Bold, Jerusalem](https://raw.githubusercontent.com/t0mer/hebrew-clock/main/assets/screenshots/clock-main-frankruh-jerusalem.png)
 *FrankRuhlLibre-Bold font — Jerusalem, 19°C sunny*
 
 ### Morning quiet window (06:00 – 07:30)
 
 Between 06:00 and 07:30 Israel time the display switches to a minimal "do not disturb" screen so early risers are not bothered by the full refresh flicker.
 
-![Morning quiet — Heebo-Bold, Raanana](assets/screenshots/clock-heebo-raanana.png)
+![Morning quiet — Heebo-Bold, Raanana](https://raw.githubusercontent.com/t0mer/hebrew-clock/main/assets/screenshots/clock-heebo-raanana.png)
 *Heebo-Bold font*
 
-![Morning quiet — NotoSansHebrew-Bold, Tel Aviv](assets/screenshots/clock-noto-telaviv.png)
+![Morning quiet — NotoSansHebrew-Bold, Tel Aviv](https://raw.githubusercontent.com/t0mer/hebrew-clock/main/assets/screenshots/clock-noto-telaviv.png)
 *NotoSansHebrew-Bold font*
 
-![Morning quiet — FrankRuhlLibre-Bold, Jerusalem](assets/screenshots/clock-frankruh-jerusalem.png)
+![Morning quiet — FrankRuhlLibre-Bold, Jerusalem](https://raw.githubusercontent.com/t0mer/hebrew-clock/main/assets/screenshots/clock-frankruh-jerusalem.png)
 *FrankRuhlLibre-Bold font*
 
 ### Jewish (Hebrew) calendar mode
 
 When `calendar=jewish` is passed, the bottom-left cell shows the full Hebrew date — day numeral, month name, and Hebrew year — fetched from the [hebcal.com](https://www.hebcal.com) converter API and cached for 24 hours.
 
-![Jewish calendar — Heebo-Bold, Raanana](assets/screenshots/clock-jewish.png)
+![Jewish calendar — Heebo-Bold, Raanana](https://raw.githubusercontent.com/t0mer/hebrew-clock/main/assets/screenshots/clock-jewish.png)
 *Hebrew date: כ״ז בְּסִיוָן תשפ״ו*
 
 ### Night / sleep mode
 
 When `sleeptime=1` is sent by the ESP (during the configured sleep window), the server returns a dark star-field image with a Hebrew "time to sleep" message.
 
-![Night sleep mode](assets/screenshots/clock-sleep.png)
+![Night sleep mode](https://raw.githubusercontent.com/t0mer/hebrew-clock/main/assets/screenshots/clock-sleep.png)
 
 ---
 
@@ -216,7 +216,7 @@ See **[epaper.md](epaper.md)** for full instructions on:
 - Web configuration UI reference
 - Optional DS3231 RTC module (keeps the sleep schedule alive without NTP)
 
-![ePaper Configuration UI](assets/screenshots/esp-config-ui.png)
+![ePaper Configuration UI](https://raw.githubusercontent.com/t0mer/hebrew-clock/main/assets/screenshots/esp-config-ui.png)
 *Configuration UI — showing Calendar type dropdown (Gregorian / Jewish) and DS3231 RTC option*
 
 ---
