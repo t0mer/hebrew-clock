@@ -34,6 +34,10 @@ uint8_t  refreshCount     = 0;
 String   selectedFont     = "NotoSansHebrew-Bold";
 String   location         = "Tel Aviv";
 
+// Custom countdown (set via dashboard; empty = auto holiday from server)
+String   countdownName    = "";   // event name, e.g. "חופשה משפחתית"
+String   countdownDate    = "";   // ISO date "YYYY-MM-DD"; empty = no override
+
 // Sleep schedule (ESP-side only — not sent to server as URL params)
 bool     sleepEnabled = false;
 String   sleepStart   = "22:00";  // HH:MM 24h
@@ -89,6 +93,23 @@ String urlEncode(const String& s) {
     return out;
 }
 
+// Returns days from today to isoDate ("YYYY-MM-DD"). Negative if past.
+int daysUntil(const String& isoDate) {
+    if (isoDate.length() < 10) return -1;
+    struct tm ti;
+    if (!getLocalTime(&ti, 0)) return -1;
+    struct tm target = {};
+    target.tm_year = isoDate.substring(0, 4).toInt() - 1900;
+    target.tm_mon  = isoDate.substring(5, 7).toInt() - 1;
+    target.tm_mday = isoDate.substring(8, 10).toInt();
+    target.tm_hour = 12;  // noon to avoid DST edge cases
+    time_t t_now    = mktime(&ti);
+    time_t t_target = mktime(&target);
+    // Truncate to days
+    time_t today_noon = t_now - (t_now % 86400) + 43200;
+    return (int)((t_target - today_noon) / 86400);
+}
+
 String buildFetchUrl() {
     String url = imageUrl;
     // Ensure a path exists before the query string ("https://host" → "https://host/")
@@ -98,8 +119,16 @@ String buildFetchUrl() {
     url += (url.indexOf('?') >= 0) ? "&" : "?";
     url += "font="       + urlEncode(selectedFont);
     url += "&sleeptime=" + String(isInSleepWindow() ? "1" : "0");
-    url += "&location="  + urlEncode(location.length() > 0 ? location : "Tel Aviv");
     url += "&calendar="  + calendarType;
+    // Custom countdown override: pass to server only while date hasn't passed
+    if (countdownName.length() > 0 && countdownDate.length() == 10) {
+        int d = daysUntil(countdownDate);
+        if (d >= 0) {
+            url += "&countdown_label=" + urlEncode(countdownName);
+            url += "&countdown_days="  + String(d);
+        }
+        // If d < 0 the event passed — server falls back to next holiday automatically
+    }
     return url;
 }
 
@@ -186,6 +215,16 @@ static const char CONFIG_HTML[] PROGMEM = R"(<!DOCTYPE html>
     </div>
     <p class="note">Wire SDA&rarr;D4, SCL&rarr;D5. On NTP success the RTC is updated; if NTP is unavailable the system clock is restored from the RTC so the sleep schedule keeps working.</p>
 
+    <hr>
+
+    <label>Custom Countdown (optional)</label>
+    <p class="note">Set a personal event. While active, the clock counts down to it. After the date passes, the clock automatically switches back to the next Jewish holiday.</p>
+    <label>Event Name</label>
+    <input type="text" name="cd_name" value="{{CD_NAME}}" placeholder="חופשה משפחתית">
+    <label>Target Date</label>
+    <input type="date" name="cd_date" value="{{CD_DATE}}">
+    <p class="note">Leave both empty to clear and return to holiday countdown.</p>
+
     <button type="submit">Save &amp; restart</button>
   </form>
   <p class="saved" id="sv">Saved! Device is restarting...</p>
@@ -224,6 +263,8 @@ void handleRoot() {
     html.replace("{{SLEEP_END}}",        sleepEnd);
     html.replace("{{INTERVAL}}",         String(refreshInterval));
     html.replace("{{RTC_EN_CHECKED}}",   rtcEnabled ? "checked" : "");
+    html.replace("{{CD_NAME}}",          countdownName);
+    html.replace("{{CD_DATE}}",          countdownDate);
     server.send(200, "text/html; charset=utf-8", html);
 }
 
@@ -246,6 +287,15 @@ void handleConfig() {
     if (server.hasArg("interval") && server.arg("interval").toInt() > 0)
         refreshInterval = (uint32_t)server.arg("interval").toInt();
 
+    // Custom countdown
+    if (server.hasArg("cd_name")) countdownName = server.arg("cd_name");
+    if (server.hasArg("cd_date")) countdownDate = server.arg("cd_date");
+    // If date is in the past, clear it silently
+    if (countdownDate.length() == 10 && daysUntil(countdownDate) < 0) {
+        countdownName = "";
+        countdownDate = "";
+    }
+
     prefs.begin("epaper", false);
     prefs.putString("url",         imageUrl);
     prefs.putString("font",        selectedFont);
@@ -256,6 +306,8 @@ void handleConfig() {
     prefs.putString("sleep_end",   sleepEnd);
     prefs.putUInt("interval",      refreshInterval);
     prefs.putBool("rtc_en",        rtcEnabled);
+    prefs.putString("cd_name",     countdownName);
+    prefs.putString("cd_date",     countdownDate);
     prefs.end();
 
     Serial.println("Config saved — restarting");
@@ -411,11 +463,20 @@ void setup() {
                        "Then open:   " + ip);
     });
 
-    wm.resetSettings();
-    if (!wm.autoConnect("EPaper-Setup")) {
-        Serial.println("WiFi failed — restarting");
-        ESP.restart();
-    }
+// FIX: Removed wm.resetSettings() - it was wiping WiFi credentials on every boot!
+        // On WiFi failure, open config portal instead of restarting (avoids double-reset detection)
+        wm.setConfigPortalTimeout(180);
+        if (!wm.autoConnect("EPaper-Setup")) {
+                    Serial.println("WiFi failed - starting config portal for 3 minutes");
+                    wm.startConfigPortal("EPaper-Setup");
+        } else {
+            // WiFi connected — check for DHCP failure (0.0.0.0 IP)
+            if (WiFi.localIP() == IPAddress(0, 0, 0, 0)) {
+                Serial.println("Got 0.0.0.0 IP - restarting to retry DHCP");
+                delay(1000);
+                ESP.restart();
+            }
+        }
     Serial.print("WiFi connected, IP: ");
     Serial.println(WiFi.localIP());
 
@@ -432,7 +493,14 @@ void setup() {
     sleepStart       = prefs.getString("sleep_start", "22:00");
     sleepEnd         = prefs.getString("sleep_end",   "06:00");
     rtcEnabled       = prefs.getBool("rtc_en",        false);
+    countdownName    = prefs.getString("cd_name",     "");
+    countdownDate    = prefs.getString("cd_date",     "");
     prefs.end();
+    // If stored countdown date has passed, clear it
+    if (countdownDate.length() == 10 && daysUntil(countdownDate) < 0) {
+        countdownName = "";
+        countdownDate = "";
+    }
 
     // Init RTC if enabled
     bool rtcAvailable = false;

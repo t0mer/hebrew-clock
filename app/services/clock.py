@@ -64,8 +64,8 @@ DAYS_HE = [
 # ── Helpers ───────────────────────────────────────────
 
 def get_israel_time() -> datetime.datetime:
-    utc = datetime.datetime.utcnow()
-    local = utc + datetime.timedelta(hours=3 if 3 <= utc.month <= 10 else 2)
+    from zoneinfo import ZoneInfo
+    local = datetime.datetime.now(ZoneInfo("Asia/Jerusalem")).replace(tzinfo=None)
     return local + datetime.timedelta(seconds=settings.display_lag)
 
 
@@ -258,11 +258,85 @@ def _generate_quiet_image(font_name: str) -> bytes:
     return _png_bytes(img)
 
 
+
+# ── Special dates ─────────────────────────────────────
+
+SPECIAL_DATES = {
+    (23, 1): ("מזל טוב סהר", 2017),
+    (23, 6): ("מזל טוב ארד", 2022),
+    (25, 11): ("מַזָּל טוֹב רוֹנִית", "HEART", "אַתְּ מֻשְׁלֶמֶת!"),
+    (1, 12): ("יוֹם נִישׂוּאִין שָׂמֵחַ", "HEART"),
+}
+
+def _get_special_event(dt: datetime.datetime):
+    """Return (line1, line2) or (line1, line2, line3) if today is a special date, else None."""
+    key = (dt.day, dt.month)
+    if key in SPECIAL_DATES:
+        entry = SPECIAL_DATES[key]
+        if len(entry) == 3:
+            return entry  # (line1, line2, line3)
+        name_line, second = entry
+        if isinstance(second, int):
+            age = dt.year - second
+            return (name_line, f"יום הולדת ה-{age}!")
+        else:
+            return (name_line, second)
+    return None
+
+
+def _generate_special_image(font_name: str, line1: str, line2: str, line3: str | None = None) -> bytes:
+    W, H = 800, 480
+    img  = Image.new("L", (W, H), color=255)
+    draw = ImageDraw.Draw(img)
+    PAD1, PAD2 = 8, 16
+    draw.rectangle([PAD1, PAD1, W - PAD1, H - PAD1], outline=0, width=3)
+    draw.rectangle([PAD2, PAD2, W - PAD2, H - PAD2], outline=0, width=1)
+
+    def fit(text: str, start: int) -> ImageFont.FreeTypeFont:
+        f = get_font(start, font_name)
+        while True:
+            bbox = draw.textbbox((0, 0), text, font=f)
+            if (bbox[2] - bbox[0]) < (W - 40):
+                return f
+            cur = getattr(f, "size", start)
+            if cur <= 30:
+                return f
+            f = get_font(cur - 4, font_name)
+
+    import math as _math
+    def _draw_heart(cx, cy, size):
+        pts = []
+        for i in range(360):
+            t = _math.radians(i)
+            x = 16 * _math.sin(t)**3
+            y = -(13 * _math.cos(t) - 5 * _math.cos(2*t) - 2 * _math.cos(3*t) - _math.cos(4*t))
+            pts.append((cx + x * size / 16, cy + y * size / 16))
+        draw.polygon(pts, fill=0)
+
+    f1 = fit(line1, 160)
+    if line3 is not None:
+        # 3-part layout: line1 top, HEART middle, line3 bottom
+        draw.text((W // 2, H // 2 - 130), line1, font=f1, fill=0, anchor="mm")
+        _draw_heart(W // 2, H // 2 + 10, 55)
+        f3 = fit(line3, 80)
+        draw.text((W // 2, H // 2 + 140), line3, font=f3, fill=0, anchor="mm")
+    else:
+        draw.text((W // 2, H // 2 - 90), line1, font=f1, fill=0, anchor="mm")
+        if line2 == "HEART":
+            _draw_heart(W // 2, H // 2 + 90, 70)
+        else:
+            f2 = fit(line2, 100)
+            draw.text((W // 2, H // 2 + 80), line2, font=f2, fill=0, anchor="mm")
+    return _png_bytes(img)
+
+
 def generate_clock_image(
-    font_name:   str        = DEFAULT_FONT,
-    sleep_time:  bool       = False,
-    weather:     dict | None = None,
-    jewish_date: str | None  = None,
+    font_name:       str        = DEFAULT_FONT,
+    sleep_time:      bool       = False,
+    jewish_date:     str | None = None,
+    countdown_label: str | None = None,
+    countdown_days:  int | None = None,
+    hide_personal:   bool       = False,
 ) -> bytes:
     fn = font_name if font_name in VALID_FONTS else DEFAULT_FONT
 
@@ -272,8 +346,9 @@ def generate_clock_image(
     now  = get_israel_time()
     h24, m = now.hour, now.minute
 
-    if h24 == 6 or (h24 == 7 and m < 30):
-        return _generate_quiet_image(fn)
+    special = None if hide_personal else _get_special_event(now)
+    if special:
+        return _generate_special_image(fn, special[0], special[1], special[2] if len(special) == 3 else None)
 
     W, H = 800, 480
     img  = Image.new("L", (W, H), color=255)
@@ -314,25 +389,25 @@ def generate_clock_image(
             f = get_font(current_size - 6, fn)
         draw.text((W // 2, ty + i * line_h), line, font=f, fill=0, anchor="mm")
 
-    sep_y = H - 105
+    sep_y = H - 120
     draw.line([(PAD2 + 8, sep_y), (W - PAD2 - 8, sep_y)], fill=0, width=1)
-    bar_cy    = H - 52
+    bar_cy    = sep_y + (H - 15 - sep_y) // 2
     bar_left  = PAD2 + 8
     bar_right = W - PAD2 - 8
     bar_width = bar_right - bar_left
     div_x     = bar_left + bar_width // 3
     div_x2    = bar_left + 2 * bar_width // 3
-    draw.line([(div_x,  H - 92), (div_x,  H - 15)], fill=0, width=1)
-    draw.line([(div_x2, H - 92), (div_x2, H - 15)], fill=0, width=1)
+    draw.line([(div_x,  sep_y), (div_x,  H - 15)], fill=0, width=1)
+    draw.line([(div_x2, sep_y), (div_x2, H - 15)], fill=0, width=1)
 
     day_name  = DAYS_HE[now.weekday()]
     if jewish_date and "\n" in jewish_date:
         date_str, year_str = jewish_date.split("\n", 1)
     else:
-        date_str = jewish_date if jewish_date else f"{now.day} {MONTHS_HE[now.month - 1]}"
+        date_str = None
         year_str = None
-    left_cx   = (bar_left + div_x) // 2
-    cell_w    = div_x - bar_left - 10
+    left_cx = (bar_left + div_x) // 2
+    cell_w  = div_x - bar_left - 10
 
     def _fit_font(text: str, start: int, minimum: int = 18) -> ImageFont.FreeTypeFont:
         f = get_font(start, fn)
@@ -345,32 +420,78 @@ def generate_clock_image(
                 return f
             f = get_font(cur - 2, fn)
 
-    if year_str:
-        day_font  = _fit_font(day_name, 28)
-        date_font = _fit_font(date_str, 26)
-        year_font = _fit_font(year_str, 22)
-        draw.text((left_cx, bar_cy - 26), day_name, font=day_font,  fill=0, anchor="mm")
-        draw.text((left_cx, bar_cy),      date_str, font=date_font, fill=0, anchor="mm")
-        draw.text((left_cx, bar_cy + 24), year_str, font=year_font, fill=0, anchor="mm")
+    # ── Left cell: Gregorian date + Hebrew date ──
+    greg_str  = f"{now.day} {MONTHS_HE[now.month - 1]} {now.year}"
+    greg_font = _fit_font(greg_str, 34)
+    if year_str and date_str:
+        heb_full  = date_str + " " + year_str
+        heb_font  = _fit_font(heb_full, 28)
+        draw.text((left_cx, bar_cy - 18), greg_str, font=greg_font, fill=0, anchor="mm")
+        draw.text((left_cx, bar_cy + 18), heb_full,  font=heb_font,  fill=0, anchor="mm")
     else:
-        date_font = _fit_font(date_str, 34)
-        draw.text((left_cx, bar_cy - 14), day_name, font=font_small, fill=0, anchor="mm")
-        draw.text((left_cx, bar_cy + 14), date_str, font=date_font,  fill=0, anchor="mm")
+        draw.text((left_cx, bar_cy), greg_str, font=greg_font, fill=0, anchor="mm")
 
+    # ── Middle cell: day name + time period ──
     mid_x = (div_x + div_x2) // 2
     if period_line:
-        draw.text((mid_x, bar_cy), period_line, font=font_small, fill=0, anchor="mm")
+        combined      = day_name + " " + period_line
+        combined_font = _fit_font(combined, 36)
+        draw.text((mid_x, bar_cy), combined, font=combined_font, fill=0, anchor="mm")
 
-    if weather:
+    # ── Right cell: countdown to next holiday (or custom event) ──
+    if countdown_label is not None and countdown_days is not None:
         right_start = div_x2
         right_end   = W - PAD2 - 8
-        icon_x      = right_start + (right_end - right_start) // 4
-        text_x      = right_start + 3 * (right_end - right_start) // 4
-        _draw_weather_icon(draw, icon_x, bar_cy, weather.get("icon_key", "cloud"), size=34)
-        draw.text((text_x, bar_cy - 14), f"{weather['temp']}°",
-                  font=get_font(40, fn), fill=0, anchor="mm")
-        draw.text((text_x, bar_cy + 16), weather.get("desc", ""),
-                  font=font_small, fill=0, anchor="mm")
+        right_cx    = (right_start + right_end) // 2
+        right_cell_w = right_end - right_start - 10
+
+        def _fit_right(text: str, start: int, minimum: int = 16) -> ImageFont.FreeTypeFont:
+            f = get_font(start, fn)
+            while True:
+                bbox = draw.textbbox((0, 0), text, font=f)
+                if (bbox[2] - bbox[0]) <= right_cell_w:
+                    return f
+                cur = getattr(f, "size", start)
+                if cur <= minimum:
+                    return f
+                f = get_font(cur - 2, fn)
+
+        if countdown_days == 0:
+            days_str = "הַיּוֹם!"
+        elif countdown_days == 1:
+            days_str = "מָחָר"
+        elif countdown_days == 2:
+            days_str = "עוֹד יוֹמַיִם"
+        else:
+            days_str = f"עוֹד {countdown_days} יָמִים"
+
+        # Use Latin font for labels that contain non-Hebrew chars (e.g. "Snowboarding ✈")
+        _has_latin = any(c.isascii() and c.isalpha() for c in countdown_label)
+        if _has_latin:
+            _latin_font_path = settings.font_dir / "OpenSans-VariableFont_wdth,wght.ttf"
+            _latin_available = _latin_font_path.exists()
+            def _fit_latin(text: str, start: int, minimum: int = 14) -> ImageFont.FreeTypeFont:
+                try:
+                    f = ImageFont.truetype(str(_latin_font_path), start)
+                except OSError:
+                    return _fit_right(text, start)  # fallback to Hebrew font
+                while True:
+                    bbox = draw.textbbox((0, 0), text, font=f)
+                    if (bbox[2] - bbox[0]) <= right_cell_w:
+                        return f
+                    cur = f.size if hasattr(f, 'size') else start
+                    if cur <= minimum:
+                        return f
+                    try:
+                        f = ImageFont.truetype(str(_latin_font_path), cur - 2)
+                    except OSError:
+                        return _fit_right(text, cur - 2)
+            label_font = _fit_latin(countdown_label, 28)
+        else:
+            label_font = _fit_right(countdown_label, 34)
+        days_font  = _fit_right(days_str, 30)
+        draw.text((right_cx, bar_cy - 18), countdown_label, font=label_font, fill=0, anchor="mm")
+        draw.text((right_cx, bar_cy + 18), days_str,        font=days_font,  fill=0, anchor="mm")
 
     return _png_bytes(img)
 
