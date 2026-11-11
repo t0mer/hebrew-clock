@@ -12,6 +12,7 @@ Usage:
 import argparse
 import ast
 import json
+import random
 import sys
 from pathlib import Path
 
@@ -49,8 +50,24 @@ def _literal(tree: ast.Module, name: str, path: str):
     raise SystemExit(f"{name} not found in {path}")
 
 
+def night_stars() -> list[list[int]]:
+    """The 60 star positions of _generate_night_image (seeded, so deterministic).
+
+    Keep in sync with the loop in app/services/clock.py: same seed, same call order.
+    """
+    w, h = 800, 480
+    rng = random.Random(42)
+    stars = []
+    for _ in range(60):
+        x = rng.randint(20, w - 20)
+        y = rng.randint(20, h - 20)
+        size = rng.choice([1, 1, 2, 2, 3])
+        stars.append([x, y, size])
+    return stars
+
+
 def build() -> str:
-    data: dict = {}
+    data: dict = {"nightStars": night_stars()}
     for path, keys in SOURCES.items():
         tree = ast.parse((ROOT / path).read_text(encoding="utf-8"))
         for key, var in keys.items():
