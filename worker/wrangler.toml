@@ -1,6 +1,6 @@
 name = "hebrew-clock"
 main = "src/index.ts"
-compatibility_date = "2026-11-01"
+compatibility_date = "2026-08-01"
 
 # Fonts and the resvg wasm are bundled as modules.
 [[rules]]
