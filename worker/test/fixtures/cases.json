@@ -1,0 +1,14 @@
+[
+  {"name": "day_noto", "font": "NotoSansHebrew-Bold", "sleep": false, "at": [2026, 11, 11, 14, 31], "weather": {"icon": "sun_cloud", "temp": 17}, "jewish": null},
+  {"name": "day_jewish", "font": "NotoSansHebrew-Bold", "sleep": false, "at": [2026, 11, 11, 14, 31], "weather": {"icon": "sun", "temp": 31}, "jewish": "ב׳ בְּכִסְלֵו\nתשפ״ז"},
+  {"name": "day_long", "font": "NotoSansHebrew-Bold", "sleep": false, "at": [2026, 11, 11, 23, 53], "weather": {"icon": "cloud_rain", "temp": 9}, "jewish": null},
+  {"name": "day_cloud", "font": "NotoSansHebrew-Bold", "sleep": false, "at": [2026, 6, 3, 9, 0], "weather": {"icon": "cloud", "temp": 22}, "jewish": null},
+  {"name": "day_snow", "font": "NotoSansHebrew-Bold", "sleep": false, "at": [2026, 1, 15, 18, 20], "weather": {"icon": "cloud_snow", "temp": -2}, "jewish": null},
+  {"name": "day_thunder", "font": "NotoSansHebrew-Bold", "sleep": false, "at": [2026, 12, 2, 3, 45], "weather": {"icon": "thunder", "temp": 12}, "jewish": null},
+  {"name": "day_noweather", "font": "NotoSansHebrew-Bold", "sleep": false, "at": [2026, 11, 11, 14, 31], "weather": null, "jewish": null},
+  {"name": "day_david", "font": "DavidLibre-Bold", "sleep": false, "at": [2026, 11, 11, 14, 31], "weather": {"icon": "sun", "temp": 31}, "jewish": null},
+  {"name": "day_heebo", "font": "Heebo-Bold", "sleep": false, "at": [2026, 11, 11, 14, 31], "weather": {"icon": "sun", "temp": 31}, "jewish": null},
+  {"name": "day_frank", "font": "FrankRuhlLibre", "sleep": false, "at": [2026, 11, 11, 14, 31], "weather": {"icon": "sun", "temp": 31}, "jewish": null},
+  {"name": "quiet", "font": "NotoSansHebrew-Bold", "sleep": false, "at": [2026, 11, 11, 6, 30], "weather": null, "jewish": null},
+  {"name": "night", "font": "NotoSansHebrew-Bold", "sleep": true, "at": [2026, 11, 11, 14, 31], "weather": null, "jewish": null}
+]
