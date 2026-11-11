@@ -1,5 +1,7 @@
 // Tiny wrapper over the Workers Cache API. Workers isolates are ephemeral, so the
 // in-process dicts used by the Python app are replaced by caches.default.
+// Cache problems (quota, unsupported on *.workers.dev) must never fail a request, so
+// every operation swallows and logs its error: a miss is always an acceptable result.
 const ORIGIN = "https://cache.hebrew-clock.invalid";
 
 export interface CacheLike {
@@ -12,20 +14,24 @@ export function defaultCache(): CacheLike {
 }
 
 export async function cacheGet<T>(cache: CacheLike, key: string): Promise<T | undefined> {
-  const res = await cache.match(`${ORIGIN}/${key}`);
-  if (!res) return undefined;
   try {
-    return (await res.json()) as T;
-  } catch {
+    const res = await cache.match(`${ORIGIN}/${key}`);
+    return res ? ((await res.json()) as T) : undefined;
+  } catch (err) {
+    console.warn(`cache get failed [${key}]: ${err}`);
     return undefined;
   }
 }
 
 export async function cachePut(cache: CacheLike, key: string, value: unknown, ttlSeconds: number): Promise<void> {
-  await cache.put(
-    `${ORIGIN}/${key}`,
-    new Response(JSON.stringify(value), {
-      headers: { "content-type": "application/json", "cache-control": `max-age=${ttlSeconds}` },
-    }),
-  );
+  try {
+    await cache.put(
+      `${ORIGIN}/${key}`,
+      new Response(JSON.stringify(value), {
+        headers: { "content-type": "application/json", "cache-control": `max-age=${ttlSeconds}` },
+      }),
+    );
+  } catch (err) {
+    console.warn(`cache put failed [${key}]: ${err}`);
+  }
 }

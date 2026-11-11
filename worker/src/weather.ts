@@ -5,6 +5,7 @@ import { cacheGet, cachePut, defaultCache, type CacheLike } from "./cache";
 export const CACHE_TTL_SECONDS = 1800;
 export const FAIL_BACKOFF_SECONDS = 600;
 const LAST_GOOD_TTL_SECONDS = 86400;
+const FETCH_TIMEOUT_MS = 3000; // a slow wttr.in must not stall the image request
 
 export interface Weather {
   temp: number;
@@ -54,7 +55,7 @@ export async function getWeather(
 
   try {
     const url = `${wttrBase.replace(/\/+$/, "")}/${loc}?format=j1`;
-    const res = await doFetch(url, { headers: { "User-Agent": "curl/7.68.0" } });
+    const res = await doFetch(url, { headers: { "User-Agent": "curl/7.68.0" }, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const result = parseWeather(await res.json());
     await Promise.all([

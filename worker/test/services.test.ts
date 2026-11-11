@@ -46,6 +46,31 @@ describe("weather", () => {
   });
 });
 
+describe("cache failures and slow upstreams", () => {
+  const brokenCache = (): CacheLike => ({
+    async match() { throw new Error("cache down"); },
+    async put() { throw new Error("cache down"); },
+  });
+  it("still returns weather when the cache throws on every call", async () => {
+    const f = vi.fn(async (..._a: any[]) => wttr("113", "25"));
+    expect(await getWeather("X", "https://wttr.in", brokenCache(), f as any)).toMatchObject({ temp: 25 });
+  });
+  it("returns null, not an error, when both wttr and the cache fail", async () => {
+    const f = vi.fn(async (..._a: any[]) => json({}, 500));
+    expect(await getWeather("X", "https://wttr.in", brokenCache(), f as any)).toBeNull();
+  });
+  it("passes an abort signal so a hung upstream times out", async () => {
+    const f = vi.fn(async (..._a: any[]) => wttr());
+    await getWeather("X", "https://wttr.in", memCache(), f as any);
+    await getJewishDate("2026-06-12", memCache(), vi.fn(async (..._a: any[]) => json({ hd: 1, hm: "Av", hy: 5786 })) as any);
+    expect((f.mock.calls[0] as any)[1].signal).toBeInstanceOf(AbortSignal);
+  });
+  it("treats a fetch that rejects (timeout) as a failure", async () => {
+    const f = vi.fn(async (..._a: any[]) => { throw new DOMException("timed out", "TimeoutError"); });
+    expect(await getWeather("X", "https://wttr.in", memCache(), f as any)).toBeNull();
+  });
+});
+
 describe("jewish date", () => {
   it("formats Hebrew years", () => {
     expect(yearToHebrew(5786)).toBe("תשפ״ו");

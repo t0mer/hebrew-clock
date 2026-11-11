@@ -3,6 +3,7 @@ import tables from "./tables.json";
 import { cacheGet, cachePut, defaultCache, type CacheLike } from "./cache";
 
 const CACHE_TTL_SECONDS = 86400; // the date changes at most once per day
+const FETCH_TIMEOUT_MS = 3000;
 const MONTHS = tables.jewishMonthsHe as Record<string, string>;
 
 const UNITS = ["", "א", "ב", "ג", "ד", "ה", "ו", "ז", "ח", "ט"];
@@ -38,7 +39,7 @@ export async function getJewishDate(
   const [y, m, d] = isoDate.split("-").map(Number);
   try {
     const url = `https://www.hebcal.com/converter?gd=${d}&gm=${m}&gy=${y}&g2h=1&cfg=json`;
-    const res = await doFetch(url);
+    const res = await doFetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const p = (await res.json()) as { hd: number | string; hm: string; hy: number | string };
     const dayStr = tables.hebrewDayNums[Number(p.hd) - 1];
