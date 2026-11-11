@@ -345,7 +345,7 @@ The `worker/` directory is a TypeScript Cloudflare Worker that serves the same r
 
 ### How it differs from the Docker server
 
-Pillow and libraqm are C extensions and cannot run on Workers, so the Worker draws the image differently: it builds an SVG, rasterizes it with [`@resvg/resvg-wasm`](https://www.npmjs.com/package/@resvg/resvg-wasm) (built on [resvg](https://github.com/RazrFalcon/resvg)) (which shapes Hebrew and niqqud) and writes a 1-bit PNG itself. Everything else is shared with the Python app:
+Pillow and libraqm are C extensions and cannot run on Workers, so the Worker draws the image differently: it builds an SVG, rasterizes it with [`@resvg/resvg-wasm`](https://www.npmjs.com/package/@resvg/resvg-wasm) (built on [resvg](https://github.com/RazrFalcon/resvg), which shapes Hebrew and niqqud) and writes a 1-bit PNG itself. Everything else is shared with the Python app:
 
 - the web page is the same `app/templates/index.html`, and `/static/*` is served from `app/static/`;
 - the fonts are the same `.ttf` files in the repository root;
