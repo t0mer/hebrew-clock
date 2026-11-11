@@ -1,0 +1,19 @@
+name = "hebrew-clock"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+
+# Fonts and the resvg wasm are bundled as modules.
+[[rules]]
+type = "Data"
+globs = ["**/*.ttf", "**/*.png"]
+fallthrough = true
+
+# Static files (tailwind.min.css) served from ./public at /static/*.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[vars]
+DISPLAY_LAG = "8"
+WTTR_URL = "https://wttr.in"
+GTAG_ID = ""
