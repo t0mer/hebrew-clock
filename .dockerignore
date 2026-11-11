@@ -13,3 +13,4 @@ docs
 .env
 .env.*
 hebclk/
+worker/
