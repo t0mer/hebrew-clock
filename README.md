@@ -8,7 +8,7 @@
 
 A Hebrew word-clock server that generates 800×480 black-and-white PNG images for e-paper displays. The server expresses the current Israel time in natural written Hebrew, together with an analog clock face, the day and date (Gregorian or Jewish calendar), and a live weather icon. A companion Arduino sketch drives the image onto a [Waveshare 7.5" V2 e-paper panel](https://s.click.aliexpress.com/e/_c3SXnojT) via a Seeed XIAO ESP32C3.
 
-The server is a small [FastAPI](https://fastapi.tiangolo.com/) application that also ships a browser preview page, so you can pick a font, location and calendar and see the result live. The device itself only needs the base URL `https://<host>/clock.png`; font, location and calendar are set in its own config UI.
+The server is a small [FastAPI](https://fastapi.tiangolo.com/) application (run it with Docker, or on [Cloudflare Workers](#deploying-to-cloudflare-workers) using the TypeScript port in `worker/`) that also ships a browser preview page, so you can pick a font, location and calendar and see the result live. The device itself only needs the base URL `https://<host>/clock.png`; font, location and calendar are set in its own config UI.
 
 ---
 
@@ -24,6 +24,7 @@ The server is a small [FastAPI](https://fastapi.tiangolo.com/) application that 
 - [Configuration](#configuration)
 - [Running Locally](#running-locally)
 - [Deploying to Render](#deploying-to-render)
+- [Deploying to Cloudflare Workers](#deploying-to-cloudflare-workers)
 - [ESP32 Firmware](#esp32-firmware)
 - [Security Notes](#security-notes)
 - [Troubleshooting](#troubleshooting)
@@ -46,6 +47,7 @@ The server is a small [FastAPI](https://fastapi.tiangolo.com/) application that 
 - **Browser preview page** with a copyable device URL, plus `robots.txt`, `sitemap.xml` and Open Graph tags.
 - **ESP32-C3 firmware** (`sketch/hebclk.ino`) with a captive-portal Wi-Fi setup, an on-device configuration page, a sleep schedule and optional DS3231 RTC support.
 - Multi-arch Docker image (`linux/amd64`, `linux/arm64`) on Docker Hub, and a `render.yaml` blueprint for Render.
+- **Two deployment targets from one repository**: the Python/Docker server, and a TypeScript Cloudflare Worker (`worker/`) that serves the same routes and the same preview page.
 
 ---
 
@@ -261,6 +263,8 @@ Settings are read from environment variables (or a `.env` file in the working di
 
 **Caching:** weather is cached per location for 30 minutes; after a failed request the server waits 10 minutes before retrying and keeps serving the last good value. The Hebrew date is cached per day for 24 hours.
 
+> The variables above apply to the Docker/Python server. On Cloudflare Workers only `DISPLAY_LAG`, `WTTR_URL` and `GTAG_ID` exist, set as `[vars]` in `worker/wrangler.toml` (see [Deploying to Cloudflare Workers](#deploying-to-cloudflare-workers)).
+
 ---
 
 ## Running Locally
@@ -330,6 +334,85 @@ The repo includes a `render.yaml` blueprint. Click the button below, connect you
 Once the service is live, copy its URL from the Render dashboard (e.g. `https://hebrew-clock.onrender.com`), append `/clock.png`, and paste `https://hebrew-clock.onrender.com/clock.png` into the **Image URL** field in the [e-paper config UI](epaper.md). Set the font, location and calendar in the device config UI; the sketch appends those parameters itself.
 
 > **Free-tier note:** Render's free plan spins down a service after 15 minutes of inactivity. Because the ESP32 fetches an image every 60 seconds by default, the service stays warm during normal use.
+
+---
+
+## Deploying to Cloudflare Workers
+
+The `worker/` directory is a TypeScript Cloudflare Worker that serves the same routes as the Docker server (`/`, `/clock`, `/clock.png`, `/robots.txt`, `/sitemap.xml`, `/health`). The Docker image is unchanged and both targets live side by side.
+
+![Preview page served by the Cloudflare Worker](https://raw.githubusercontent.com/t0mer/hebrew-clock/main/assets/screenshots/worker-ui.png)
+
+### How it differs from the Docker server
+
+Pillow and libraqm are C extensions and cannot run on Workers, so the Worker draws the image differently: it builds an SVG, rasterizes it with [`@resvg/resvg-wasm`](https://www.npmjs.com/package/@resvg/resvg-wasm) (built on [resvg](https://github.com/RazrFalcon/resvg)) (which shapes Hebrew and niqqud) and writes a 1-bit PNG itself. Everything else is shared with the Python app:
+
+- the web page is the same `app/templates/index.html`, and `/static/*` is served from `app/static/`;
+- the fonts are the same `.ttf` files in the repository root;
+- the Hebrew tables are exported from the Python modules into `worker/src/tables.json` by `scripts/export_tables.py` (Python stays the source of truth; the deploy workflow fails if the file is stale);
+- the Israel time rule (UTC+3 for March through October, UTC+2 otherwise) and the display lag are ported as is, so both targets show the same time.
+
+| | Docker (Python) | Cloudflare Worker |
+|---|---|---|
+| Rendering | Pillow + libraqm | resvg-wasm |
+| Output | 800×480, 1-bit PNG | 800×480, 1-bit PNG (visually the same, not byte-identical) |
+| Caching | in-process, per container | Workers Cache API |
+| `/api/docs` (Swagger) | yes | no |
+| Settings | environment variables / `.env` | `[vars]` in `worker/wrangler.toml` |
+
+The Worker's output is compared in its tests against images rendered by the Python app. A typical render differs from the Pillow image in 1-2% of pixels, because anti-aliasing and glyph hinting differ.
+
+### Requirements
+
+- A Cloudflare account and Node.js 22.12 or newer (the repository's CI uses Node 24).
+- The Workers **Paid** plan is recommended. In local testing one image takes about 17 ms in total, which may exceed the 10 ms CPU limit of the Free plan. The bundle is about 2.9 MiB (1.2 MiB gzipped).
+- Use a custom domain or route. Cloudflare's Cache API only stores responses on custom domains, not on `*.workers.dev`, so on `workers.dev` every request calls wttr.in.
+
+### Deploy
+
+```bash
+cd worker
+npm ci
+npx wrangler login
+npx wrangler deploy
+```
+
+Then open the Worker URL; the device URL is `https://<your-worker>/clock.png`.
+
+### Configuration
+
+Edit `[vars]` in `worker/wrangler.toml` (or set them in the Cloudflare dashboard):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DISPLAY_LAG` | `8` | Seconds added to Israel time before rendering. |
+| `WTTR_URL` | `https://wttr.in` | Base URL of the wttr.in-compatible weather service. |
+| `GTAG_ID` | *(empty)* | Google Analytics measurement ID; when set, the preview page includes the gtag script. |
+
+`PORT`, `FONT_DIR` and `FORWARDED_ALLOW_IPS` do not apply on Workers. A `location` longer than 100 characters, made only of dots, or containing control characters is rejected with HTTP 400.
+
+### Local development and tests
+
+```bash
+cd worker
+npm ci
+npm run dev        # wrangler dev, serves http://127.0.0.1:8787 (use --port to change)
+npm run typecheck
+npm test           # runs in the Workers runtime
+```
+
+To refresh the data shared with the Python app after changing it:
+
+```bash
+python3 scripts/export_tables.py             # Hebrew tables -> worker/src/tables.json
+python3 scripts/export_tables.py --check     # CI: fail if tables.json is stale
+python3 scripts/bake_sleeping.py             # sleeping.png -> worker/assets/sleeping-night.png (needs Pillow)
+python scripts/gen_golden.py                 # re-render the Python golden images used by the tests (needs the app dependencies)
+```
+
+### Deploy from GitHub Actions
+
+The manual **Deploy Cloudflare Worker** workflow (`.github/workflows/deploy-worker.yml`) checks the tables, type-checks, runs the tests and runs `wrangler deploy`. It needs two repository secrets: `CLOUDFLARE_API_TOKEN` (permission *Workers Scripts: Edit*) and `CLOUDFLARE_ACCOUNT_ID`.
 
 ---
 
@@ -408,7 +491,7 @@ pytest          # tests in tests/
 ruff check .    # lint (currently reports 12 existing errors)
 ```
 
-Releases are built by the manual **Docker Build** GitHub Actions workflow (`.github/workflows/docker-image.yml`), which computes a `YYYY.M.PATCH` version with `scripts/next-version.sh`, tags the commit and pushes the multi-arch image to Docker Hub. A second manual workflow, `publish-ghcr.yml`, can push the image to `ghcr.io/t0mer/hebrew-clock`.
+Releases are built by the manual **Docker Build** GitHub Actions workflow (`.github/workflows/docker-image.yml`), which computes a `YYYY.M.PATCH` version with `scripts/next-version.sh`, tags the commit and pushes the multi-arch image to Docker Hub. A second manual workflow, `publish-ghcr.yml`, can push the image to `ghcr.io/t0mer/hebrew-clock`. The Worker has its own manual workflow, `deploy-worker.yml`.
 
 ### Project Structure
 
@@ -427,7 +510,15 @@ app/
 sketch/
   hebclk.ino           # ESP32 Arduino sketch
 tests/                 # pytest suite
-scripts/next-version.sh
+scripts/
+  next-version.sh      # YYYY.M.PATCH version for releases
+  export_tables.py     # Hebrew tables -> worker/src/tables.json
+  bake_sleeping.py     # night illustration for the Worker
+  gen_golden.py        # Python reference images for the Worker tests
+worker/                # Cloudflare Worker (TypeScript)
+  src/                 # routes, time logic, resvg renderer, weather/hebcal
+  test/                # vitest, incl. comparison with Python renders
+  wrangler.toml
 assets/screenshots/    # README images
 *.ttf, sleeping.png    # Fonts and night-mode illustration
 epaper.md              # Device setup guide
