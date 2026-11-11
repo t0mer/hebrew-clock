@@ -1,0 +1,26 @@
+name = "hebrew-clock"
+main = "src/index.ts"
+compatibility_date = "2026-08-01"
+
+# Fonts and the resvg wasm are bundled as modules.
+[[rules]]
+type = "Data"
+globs = ["**/*.ttf", "**/*.png"]
+fallthrough = true
+
+[[rules]]
+type = "Text"
+globs = ["**/*.html"]
+fallthrough = true
+
+# Static files (tailwind.min.css) come from the Python app's own app/static dir,
+# served at /static/* by the Worker (run_worker_first), so there is one copy.
+[assets]
+directory = "../app/static"
+binding = "ASSETS"
+run_worker_first = true
+
+[vars]
+DISPLAY_LAG = "8"
+WTTR_URL = "https://wttr.in"
+GTAG_ID = ""

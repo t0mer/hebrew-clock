@@ -1,0 +1,29 @@
+{
+  "name": "hebrew-clock-worker",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Cloudflare Workers entrypoint for Hebrew Clock",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@resvg/resvg-wasm": "2.6.2"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "1.7.0",
+    "@cloudflare/workers-types": "5.20261110.1",
+    "typescript": "5.9.3",
+    "vitest": "^4.1.0",
+    "wrangler": "4.160.0"
+  },
+  "allowScripts": {
+    "workerd@1.20260815.1": true,
+    "workerd@1.20261110.1": true,
+    "esbuild@0.28.1": true,
+    "esbuild@0.28.2": true
+  }
+}
